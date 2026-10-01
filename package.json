@@ -1,0 +1,58 @@
+{
+  "name": "gramix-api",
+  "version": "1.0.0",
+  "description": "Node.js client for the Gramix reseller API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.js",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run verify",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify:package": "npm run build && node scripts/verify-package.mjs",
+    "verify": "npm run format:check && npm run check && npm test && npm run verify:package"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "typescript": "^7.0.2"
+  },
+  "keywords": [
+    "gramix",
+    "telegram",
+    "api",
+    "sdk"
+  ],
+  "homepage": "https://gramix.io/resellers/api/documentation",
+  "author": "Gramix.io",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gramix-io/gramix-node-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gramix-io/gramix-node-sdk/issues"
+  }
+}
