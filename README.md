@@ -1,4 +1,4 @@
-# Gramix Node.js SDK
+# Gramix Node.js SDK (Fragment API Unofficial)
 
 An asynchronous, fully typed client for the [Gramix.io](https://gramix.io/)
 reseller API. See the [API documentation](https://gramix.io/resellers/api/documentation).
