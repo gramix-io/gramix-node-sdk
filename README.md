@@ -66,6 +66,44 @@ const orders = await client.listOrders({ limit: 20, offset: 0 });
 const order = await client.getOrder(purchase.orderId);
 ```
 
+## Telegram Ads top-up
+
+Advertisement purchases top up a Telegram Ads account with GRAM. The
+`adsAccountId` is the 64-character value after `account=` in the
+"Add funds on Fragment" link in Telegram Ads; it is case-sensitive, so pass it
+unchanged. Amounts are integer GRAM from 1 to 10,000, paid with `gram` or
+`usdt`.
+
+Call `checkAdvertisement()` before every advertisement purchase and purchase
+only when `isValid` is `true`. The check creates no order, charges nothing, and
+sends no idempotency key.
+
+```js
+const adsAccountId =
+  "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdEfGhIjKlMnOpQrStUvWxYz";
+
+const check = await client.checkAdvertisement({ adsAccountId, amount: 25 });
+// { isValid: true, message: "OK", minAmount: 20 }
+
+if (check.isValid) {
+  const topUp = await client.purchaseAdvertisement(
+    { adsAccountId, paymentCurrency: "gram", amount: 25 },
+    "ads_20261109_0001",
+  );
+  console.log(topUp.orderId, topUp.status);
+} else {
+  // For example: { isValid: false, message: "Minimum top-up amount is 20 GRAM",
+  //   minAmount: 20, code: "ADVERTISEMENT_AMOUNT_BELOW_MINIMUM_TWENTY" }
+  console.error(check.message, check.code);
+}
+```
+
+`minAmount` and `code` are optional. Treat `code` as an open set of strings;
+`ADVERTISEMENT_AMOUNT_BELOW_MINIMUM_TWENTY` is the currently documented value.
+Advertisement orders and webhooks use type `advertisement`; their
+`recipientName` holds the ads account ID, and `extraData.quantityGrams` holds
+the top-up amount.
+
 Every method returns the contents of the successful response's `data` field.
 The client validates the documented structure before returning it.
 
@@ -73,26 +111,33 @@ The client validates the documented structure before returning it.
 
 All paths below are relative to `https://api.gramix.io/api/v1`.
 
-| JavaScript method                        | HTTP endpoint                       | Arguments / result                              |
-| ---------------------------------------- | ----------------------------------- | ----------------------------------------------- |
-| `getBalance()`                           | `GET /wallets/balance`              | Decimal strings: `gram`, `usdt`                 |
-| `getDepositDetails()`                    | `POST /wallets/balance`             | TON `address` and required `memo`               |
-| `purchaseStars(input, idempotencyKey)`   | `POST /purchase/stars`              | 50–1,000,000 integer Stars; `gram` or `usdt`    |
-| `purchasePremium(input, idempotencyKey)` | `POST /purchase/premium/{duration}` | 3, 6, or 12 months; `gram` or `usdt`            |
-| `purchaseGram(input, idempotencyKey)`    | `POST /purchase/gram`               | 1–10,000 integer GRAM; payment currency `gram`  |
-| `listOrders({ limit: 20, offset: 0 })`   | `GET /orders`                       | `data`, `total`, `limit`, `offset`; limit 1–100 |
-| `getOrder(orderId)`                      | `GET /orders/{id}`                  | One order by UUID                               |
+| JavaScript method                              | HTTP endpoint                        | Arguments / result                                      |
+| ---------------------------------------------- | ------------------------------------ | ------------------------------------------------------- |
+| `getBalance()`                                 | `GET /wallets/balance`               | Decimal strings: `gram`, `usdt`                         |
+| `getDepositDetails()`                          | `POST /wallets/balance`              | TON `address` and required `memo`                       |
+| `purchaseStars(input, idempotencyKey)`         | `POST /purchase/stars`               | 50–1,000,000 integer Stars; `gram` or `usdt`            |
+| `purchasePremium(input, idempotencyKey)`       | `POST /purchase/premium/{duration}`  | 3, 6, or 12 months; `gram` or `usdt`                    |
+| `purchaseGram(input, idempotencyKey)`          | `POST /purchase/gram`                | 1–10,000 integer GRAM; payment currency `gram`          |
+| `checkAdvertisement(input)`                    | `POST /purchase/advertisement/check` | `isValid`, `message`, optional `minAmount`, `code`      |
+| `purchaseAdvertisement(input, idempotencyKey)` | `POST /purchase/advertisement`       | Ads account ID; 1–10,000 integer GRAM; `gram` or `usdt` |
+| `listOrders({ limit: 20, offset: 0 })`         | `GET /orders`                        | `data`, `total`, `limit`, `offset`; limit 1–100         |
+| `getOrder(orderId)`                            | `GET /orders/{id}`                   | One order by UUID                                       |
 
 Methods return promises. Input and response fields use the API's `camelCase`
 names. GET requests and deposit requests have no JSON body. Purchases carry
-`Content-Type: application/json` and `idempotency-key`; every request includes
+`Content-Type: application/json` and `idempotency-key`; the advertisement check
+sends a JSON body without `idempotency-key`. Every request includes
 `x-api-key` and `Accept: application/json`.
 
-Recipients use lowercase Telegram usernames without `@`. Idempotency keys
+Recipients use lowercase Telegram usernames without `@`. Ads account IDs are
+exactly 64 letters, digits, underscores, or hyphens and must not contain 9 or
+more identical consecutive characters. Idempotency keys
 contain 8–64 ASCII letters, digits, underscores, or hyphens. Always include the
 deposit memo in the TON transfer. A purchase response means acceptance for
 asynchronous processing; use `getOrder(purchase.orderId)` or webhooks to track
-completion. Order currency uses `usd` for USDT payments.
+completion. Order currency uses `usd` for USDT payments. Order types are
+`stars`, `gram_coins`, `premium_3_month`, `premium_6_month`,
+`premium_12_month`, and `advertisement`.
 
 Balances and amounts remain decimal strings with four fractional digits. Keep
 them as strings or use a decimal arithmetic library instead of floating-point

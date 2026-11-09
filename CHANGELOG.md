@@ -4,6 +4,14 @@ All notable changes to this package will be documented here.
 
 ## Unreleased
 
+## 1.1.0 - 2026-11-09
+
+- Add Telegram Ads account top-up: `checkAdvertisement()` for
+  `POST /purchase/advertisement/check` and `purchaseAdvertisement()` for
+  `POST /purchase/advertisement`, with local validation of the 64-character
+  ads account ID, integer GRAM amounts and payment currency.
+- Accept the `advertisement` order and webhook type, ads account IDs in
+  `recipientName` for advertisement orders, and `extraData.quantityGrams`.
 - Move implementation to strict TypeScript and generate declarations during build.
 - Separate endpoint logic, HTTP transport, validation and public error types.
 - Correct GRAM purchases to use only GRAM currency and integer quantities.

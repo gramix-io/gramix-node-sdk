@@ -1,4 +1,5 @@
 import {
+  type AdvertisementCheckResult,
   GramixClient,
   GramixInvalidResponseError,
   type Order,
@@ -63,3 +64,32 @@ const invalidEvent: WebhookEvent = {
   status: "failed",
 };
 void invalidEvent;
+
+const adsAccountId =
+  "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdEfGhIjKlMnOpQrStUvWxYz";
+const adsCheck: Promise<AdvertisementCheckResult> = client.checkAdvertisement({
+  adsAccountId,
+  amount: 20,
+});
+void adsCheck;
+const adsPurchase: Promise<PurchaseResponse> = client.purchaseAdvertisement(
+  { adsAccountId, paymentCurrency: "usdt", amount: 20 },
+  "ads_types_0001",
+);
+void adsPurchase;
+client.purchaseAdvertisement(
+  // @ts-expect-error Advertisement purchases use adsAccountId, not recipientName.
+  { recipientName: "telegram_user", paymentCurrency: "gram", amount: 20 },
+  "ads_types_0001",
+);
+client.checkAdvertisement(
+  // @ts-expect-error Advertisement amount must be numeric.
+  { adsAccountId, amount: "20" },
+);
+const orderType: Order["type"] = "advertisement";
+const webhookType: WebhookEvent["type"] = "advertisement";
+const quantityGrams: number | undefined = ({} as Order).extraData
+  ?.quantityGrams;
+void orderType;
+void webhookType;
+void quantityGrams;

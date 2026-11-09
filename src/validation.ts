@@ -1,4 +1,5 @@
 import type {
+  AdvertisementCheckResult,
   DepositDetails,
   Order,
   OrderList,
@@ -8,6 +9,9 @@ import type {
 } from "./types.js";
 
 const RECIPIENT = /^[a-z][a-z0-9_]{4,31}$/;
+const ADS_ACCOUNT = /^[A-Za-z0-9_-]{64}$/;
+// The API rejects IDs with 9+ identical consecutive characters as forged.
+const REPEATED_RUN = /(.)\1{8}/;
 const IDEMPOTENCY = /^[A-Za-z0-9_-]{8,64}$/;
 // Accept RFC UUID versions, including newer time-ordered UUIDs.
 const UUID =
@@ -26,6 +30,7 @@ const ORDER_TYPES = [
   "premium_3_month",
   "premium_6_month",
   "premium_12_month",
+  "advertisement",
 ] as const;
 const PROCESSING_STATUSES = [
   "pending_processing",
@@ -99,6 +104,25 @@ export function validatePurchase(
   string(key, "Idempotency key", IDEMPOTENCY);
 }
 
+export function validateAdvertisementPurchase(
+  id: unknown,
+  currency: unknown,
+  key: unknown,
+): void {
+  adsAccountId(id);
+  choice(currency, ["gram", "usdt"], "Payment currency");
+  string(key, "Idempotency key", IDEMPOTENCY);
+}
+
+export function adsAccountId(value: unknown): string {
+  const id = string(value, "Ads account ID", ADS_ACCOUNT);
+  if (REPEATED_RUN.test(id))
+    throw new TypeError(
+      "Ads account ID must not contain 9 or more identical consecutive characters.",
+    );
+  return id;
+}
+
 function timestamp(value: unknown): string {
   const text = string(
     value,
@@ -135,6 +159,27 @@ export function purchaseResponse(value: unknown): PurchaseResponse {
   };
 }
 
+export function advertisementCheck(value: unknown): AdvertisementCheckResult {
+  const data = object(value);
+  if (typeof data.isValid !== "boolean")
+    throw new TypeError("isValid must be a boolean.");
+  const result: AdvertisementCheckResult = {
+    isValid: data.isValid,
+    message: string(data.message, "message"),
+  };
+  // Optional fields are omitted when absent; null is treated as absent.
+  if (data.minAmount !== undefined && data.minAmount !== null)
+    result.minAmount = integer(
+      data.minAmount,
+      0,
+      Number.MAX_SAFE_INTEGER,
+      "minAmount",
+    );
+  if (data.code !== undefined && data.code !== null)
+    result.code = string(data.code, "code", /\S/);
+  return result;
+}
+
 function nullableString(value: unknown, name: string): string | null {
   return value === null ? null : string(value, name);
 }
@@ -143,14 +188,19 @@ function extraData(value: unknown): Order["extraData"] {
   if (value === null) return null;
   const data = object(value, "extraData");
   const result: NonNullable<Order["extraData"]> = {};
-  for (const key of ["quantityStars", "quantityCoins"] as const) {
+  for (const key of [
+    "quantityStars",
+    "quantityCoins",
+    "quantityGrams",
+  ] as const) {
     if (Object.hasOwn(data, key))
       result[key] = integer(data[key], 0, Number.MAX_SAFE_INTEGER, key);
   }
   return result;
 }
 
-function orderFields(data: Record<string, unknown>) {
+// Advertisement orders store the Telegram Ads account ID in recipientName.
+function orderFields(data: Record<string, unknown>, type: string) {
   return {
     currency: choice(data.currency, ["gram", "usd"], "currency"),
     amount: string(data.amount, "amount", MONEY),
@@ -159,17 +209,22 @@ function orderFields(data: Record<string, unknown>) {
       PROCESSING_STATUSES,
       "processingStatus",
     ),
-    recipientName: string(data.recipientName, "recipientName", RECIPIENT),
+    recipientName: string(
+      data.recipientName,
+      "recipientName",
+      type === "advertisement" ? ADS_ACCOUNT : RECIPIENT,
+    ),
     createdAt: timestamp(data.createdAt),
   };
 }
 
 export function order(value: unknown): Order {
   const data = object(value, "Order");
+  const type = choice(data.type, ORDER_TYPES, "type");
   return {
-    ...orderFields(data),
+    ...orderFields(data, type),
     id: orderId(data.id),
-    type: choice(data.type, ORDER_TYPES, "type"),
+    type,
     method: choice(data.method, ["api"], "method"),
     status: choice(data.status, ORDER_STATUSES, "status"),
     extraData: extraData(data.extraData),
@@ -205,11 +260,16 @@ export function parseWebhookEvent(value: unknown): WebhookEvent {
   if (data.status !== expected)
     throw new TypeError("Webhook event and status do not match.");
   const type = string(data.type, "type");
-  if (type !== "stars" && type !== "gram" && !type.startsWith("premium_")) {
+  if (
+    type !== "stars" &&
+    type !== "gram" &&
+    type !== "advertisement" &&
+    !type.startsWith("premium_")
+  ) {
     throw new TypeError("Webhook type is not recognized.");
   }
   const base = {
-    ...orderFields(data),
+    ...orderFields(data, type),
     orderId: orderId(data.orderId),
     type: type as WebhookEvent["type"],
   };

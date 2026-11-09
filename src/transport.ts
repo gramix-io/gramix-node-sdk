@@ -86,7 +86,7 @@ export class HttpTransport {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "x-api-key": this.#apiKey,
-      "User-Agent": "gramix-node/1.0.0",
+      "User-Agent": "gramix-node/1.1.0",
     };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (idempotencyKey !== undefined)

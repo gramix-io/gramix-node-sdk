@@ -43,6 +43,8 @@ try {
     import { GramixClient, GramixApiError, GramixError, GramixInvalidResponseError, parseWebhookEvent } from 'gramix-api';
     assert.equal(typeof GramixClient, 'function');
     assert.equal(typeof parseWebhookEvent, 'function');
+    assert.equal(typeof GramixClient.prototype.checkAdvertisement, 'function');
+    assert.equal(typeof GramixClient.prototype.purchaseAdvertisement, 'function');
     assert.ok(new GramixApiError('test') instanceof GramixError);
     assert.ok(!(new GramixApiError('test') instanceof GramixInvalidResponseError));
     const client = new GramixClient('test-key', { fetch: async () => new Response(JSON.stringify({ statusCode: 200, data: { gram: '1.0000', usdt: '2.0000' } })) });

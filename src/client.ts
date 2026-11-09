@@ -1,5 +1,7 @@
 import { HttpTransport } from "./transport.js";
 import type {
+  AdvertisementCheckInput,
+  AdvertisementPurchaseInput,
   GramixClientOptions,
   GramPurchaseInput,
   ListOrdersOptions,
@@ -8,6 +10,8 @@ import type {
   StarsPurchaseInput,
 } from "./types.js";
 import {
+  adsAccountId,
+  advertisementCheck,
   depositDetails,
   integer,
   object,
@@ -15,6 +19,7 @@ import {
   orderId,
   orderList,
   purchaseResponse,
+  validateAdvertisementPurchase,
   validatePurchase,
   walletBalance,
 } from "./validation.js";
@@ -94,6 +99,39 @@ export class GramixClient {
     return this.#purchase(
       "/purchase/gram",
       { recipientName, paymentCurrency, gram },
+      idempotencyKey,
+      options,
+    );
+  }
+
+  /** Checks whether a Telegram Ads account can be topped up; creates no order and charges nothing. */
+  checkAdvertisement(input: AdvertisementCheckInput, options?: RequestOptions) {
+    object(input, "Advertisement check input");
+    const { adsAccountId: id, amount } = input;
+    adsAccountId(id);
+    integer(amount, 1, 10_000, "Advertisement amount");
+    return this.#transport.request({
+      method: "POST",
+      path: "/purchase/advertisement/check",
+      body: { adsAccountId: id, amount },
+      signal: options?.signal,
+      parse: advertisementCheck,
+    });
+  }
+
+  /** Tops up a Telegram Ads account; call checkAdvertisement first and purchase only if isValid. */
+  purchaseAdvertisement(
+    input: AdvertisementPurchaseInput,
+    idempotencyKey: string,
+    options?: RequestOptions,
+  ) {
+    object(input, "Advertisement purchase input");
+    const { adsAccountId: id, paymentCurrency, amount } = input;
+    validateAdvertisementPurchase(id, paymentCurrency, idempotencyKey);
+    integer(amount, 1, 10_000, "Advertisement amount");
+    return this.#purchase(
+      "/purchase/advertisement",
+      { adsAccountId: id, paymentCurrency, amount },
       idempotencyKey,
       options,
     );

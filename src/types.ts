@@ -13,7 +13,8 @@ export type OrderType =
   | "gram_coins"
   | "premium_3_month"
   | "premium_6_month"
-  | "premium_12_month";
+  | "premium_12_month"
+  | "advertisement";
 
 export interface WalletBalance {
   gram: string;
@@ -39,8 +40,13 @@ export interface Order {
   amount: string;
   status: OrderStatus;
   processingStatus: ProcessingStatus;
+  /** For `advertisement` orders this is the Telegram Ads account ID. */
   recipientName: string;
-  extraData: { quantityStars?: number; quantityCoins?: number } | null;
+  extraData: {
+    quantityStars?: number;
+    quantityCoins?: number;
+    quantityGrams?: number;
+  } | null;
   transactionHash: string | null;
   idempotencyKey: string | null;
   createdAt: string;
@@ -56,7 +62,7 @@ export interface OrderList {
 interface WebhookBase {
   orderId: string;
   processingStatus: ProcessingStatus;
-  type: "stars" | "gram" | `premium_${string}`;
+  type: "stars" | "gram" | "advertisement" | `premium_${string}`;
   amount: string;
   currency: "gram" | "usd";
   recipientName: string;
@@ -96,4 +102,22 @@ export interface GramPurchaseInput extends PurchaseInput {
 export interface ListOrdersOptions extends RequestOptions {
   limit?: number;
   offset?: number;
+}
+
+/** Telegram Ads account ID: the 64-character value after `account=` in the Fragment top-up link. */
+export interface AdvertisementCheckInput {
+  adsAccountId: string;
+  amount: number;
+}
+export interface AdvertisementPurchaseInput extends AdvertisementCheckInput {
+  paymentCurrency: PaymentCurrency;
+}
+/** Known check codes; other codes may be returned and are passed through unchanged. */
+export type AdvertisementCheckCode =
+  "ADVERTISEMENT_AMOUNT_BELOW_MINIMUM_TWENTY" | (string & {});
+export interface AdvertisementCheckResult {
+  isValid: boolean;
+  message: string;
+  minAmount?: number;
+  code?: AdvertisementCheckCode;
 }

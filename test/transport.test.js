@@ -59,6 +59,39 @@ test("real HTTP sends authentication, routes and JSON purchase body", async (t) 
   });
 });
 
+test("real HTTP advertisement check sends no idempotency key", async (t) => {
+  let received;
+  const baseUrl = await server(t, async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    received = {
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: JSON.parse(body),
+    };
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        statusCode: 201,
+        data: { isValid: true, message: "OK", minAmount: 20 },
+      }),
+    );
+  });
+  const adsAccountId =
+    "0a30XEfiw4DJ3GUCaVpgcQr71-_zjpIVzevDuJ9DCB6kCEwof3pVjNXEmlUoOECl";
+  const check = await new GramixClient("test-secret", {
+    baseUrl,
+  }).checkAdvertisement({ adsAccountId, amount: 20 });
+  assert.deepEqual(check, { isValid: true, message: "OK", minAmount: 20 });
+  assert.equal(received.method, "POST");
+  assert.equal(received.url, "/api/v1/purchase/advertisement/check");
+  assert.equal(received.headers["x-api-key"], "test-secret");
+  assert.equal(received.headers["idempotency-key"], undefined);
+  assert.equal(received.headers["content-type"], "application/json");
+  assert.deepEqual(received.body, { adsAccountId, amount: 20 });
+});
+
 test("redirects cannot forward the API key", async (t) => {
   let destinationCalls = 0;
   const destination = await server(t, (_req, res) => {
